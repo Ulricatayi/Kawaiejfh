@@ -1,42 +1,47 @@
-const { gpt } = require("gpti");
+const axios = require('axios');
 
 module.exports.config = {
   name: "gpt",
-  author: "Yan Maglinte",
+  author: "Yan Maglinte & Jhon Xyryll Samoy",
   version: "1.0",
-  category: "AI",
-  description: "Chat with gpt",
+  category: "Utility",
+  description: "Chat with GPT models.",
   adminOnly: false,
-  usePrefix: false,
-  cooldown: 3,
+  usePrefix: true,
+  cooldown: 5, // Cooldown time in seconds
+};
+
+const apiEndpoints = {
+  gpt3: "https://kaiz-apis.gleeze.com/api/gpt-3.5?q=",
+  gpt4: "https://kaiz-apis.gleeze.com/api/gpt-4o?ask=",
+  gpt4o: "https://kaiz-apis.gleeze.com/api/gpt-4o-pro?ask=",
+  gpt4mini: "https://kaiz-apis.gleeze.com/api/gpt4o-mini?ask="
 };
 
 module.exports.run = async function ({ event, args }) {
   if (event.type === "message") {
-    let prompt = args.join(" ");
+    let [model, ...query] = args;
+    query = query.join(" ");
 
-    let data = await gpt.v1({
-        messages: [],
-        prompt: prompt,
-        model: "GPT-4",
-        markdown: false
-    });
+    if (!model || !apiEndpoints[model]) {
+      return api.sendMessage("Invalid model! Available models: gpt3, gpt4, gpt4o, gpt4mini.", event.sender.id);
+    }
 
-    api.sendMessage(data.gpt, event.sender.id).catch(err => {
-        console.log(err);
-    });
-  } else if (event.type === "message_reply") {
-    let prompt = `Message: "${args.join(" ")}\n\nReplying to: ${event.message.reply_to.text}`;
+    if (!query) {
+      return api.sendMessage("Please provide a question.", event.sender.id);
+    }
 
-    let data = await gpt.v1({
-        messages: [],
-        prompt: prompt,
-        model: "GPT-4",
-        markdown: false
-    });
-
-    api.sendMessage(data.gpt, event.sender.id).catch(err => {
-        console.log(err);
-    });
+    try {
+      const response = await axios.get(apiEndpoints[model] + encodeURIComponent(query));
+      
+      if (response.data && response.data.reply) {
+        api.sendMessage(response.data.reply, event.sender.id);
+      } else {
+        api.sendMessage("No response from the AI. Try again later.", event.sender.id);
+      }
+    } catch (error) {
+      console.error(error);
+      api.sendMessage("An error occurred while fetching the response. Please try again later.", event.sender.id);
+    }
   }
 };
